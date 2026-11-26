@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agrovision - Admin Media Upload</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 550px; margin: 40px auto; padding: 20px; background: #f2f7f2; color: #222; }
+.card { background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 3px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+h2 { color: #1b5e20; margin-top: 0; }
+input, button { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #ccc; font-size: 15px; }
+button { background: #2e7d32; color: #fff; border: none; cursor: pointer; font-weight: bold; }
+button:hover { background: #1b5e20; }
+.logout-btn { background: #666; }
+.logout-btn:hover { background: #444; }
+.hidden { display: none; }
+.status { font-weight: bold; margin-top: 10px; }
+.media-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+.delete-btn { width: auto; background: #c62828; padding: 6px 12px; margin: 0; font-size: 13px; }
+.delete-btn:hover { background: #8e0000; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN BOX -->
+<div id="login-box" class="card">
+<h2>Agrovision Admin Login</h2>
+<p>Log in with your admin email and password to manage website photos & videos.</p>
+<input type="email" id="email" placeholder="Admin Email">
+<input type="password" id="password" placeholder="Admin Password">
+<button id="login-btn">Log In</button>
+<p id="login-error" style="color: #c62828;"></p>
+</div>
+
+<!-- UPLOAD DASHBOARD (Only visible after you log in) -->
+<div id="upload-box" class="card hidden">
+<h2>Upload Photo or Video</h2>
+<input type="text" id="title" placeholder="Caption or Title (e.g., Greenhouse Tomatoes)">
+<input type="file" id="file-input" accept="image/*,video/*">
+<button id="upload-btn">Upload to Agrovision</button>
+<p id="status" class="status"></p>
+<hr>
+<h3>Manage Uploaded Media</h3>
+<div id="admin-media-list"></div>
+<br>
+<button id="logout-btn" class="logout-btn">Log Out</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDQpZs0v5M8VPTfA4V_QUJQH7l93VW3TSI",
+  authDomain: "agrovision-28cac.firebaseapp.com",
+  projectId: "agrovision-28cac",
+  storageBucket: "agrovision-28cac.firebasestorage.app",
+  messagingSenderId: "338526051939",
+  appId: "1:338526051939:web:48222cf9006bab7f9da256",
+  measurementId: "G-HR48KDS9L6"
+};
+
+const CLOUD_NAME = "uj16kepb";
+const UPLOAD_PRESET = "agrovision_uploads";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+onAuthStateChanged(auth, (user) => {
+  document.getElementById('login-box').classList.toggle('hidden', !!user);
+  document.getElementById('upload-box').classList.toggle('hidden', !user);
+  if (user) loadAdminList();
+});
+
+document.getElementById('login-btn').onclick = async () => {
+  const email = document.getElementById('email').value.trim();
+  const pass = document.getElementById('password').value;
+  document.getElementById('login-error').innerText = "";
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    document.getElementById('login-error').innerText = "Login failed: " + err.message;
+  }
+};
+
+document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+document.getElementById('upload-btn').onclick = async () => {
+  const fileInput = document.getElementById('file-input');
+  const file = fileInput.files[0];
+  const title = document.getElementById('title').value.trim();
+  const status = document.getElementById('status');
+
+  if (!file) {
+    alert("Please choose a photo or video first.");
+    return;
+  }
+
+  status.style.color = "#1b5e20";
+  status.innerText = "Uploading to cloud... please wait.";
+
+  try {
+    const isVideo = file.type.startsWith("video");
+    const resourceType = isVideo ? "video" : "image";
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`, {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!data.secure_url) throw new Error(data.error?.message || "Cloudinary upload failed");
+
+    await addDoc(collection(db, "media"), {
+      title: title || "Agrovision Update",
+      url: data.secure_url,
+      type: resourceType,
+      createdAt: serverTimestamp()
+    });
+
+    status.innerText = "Success! Your " + resourceType + " is now uploaded.";
+    document.getElementById('title').value = "";
+    fileInput.value = "";
+    loadAdminList();
+  } catch (err) {
+    status.style.color = "#c62828";
+    status.innerText = "Error: " + err.message;
+  }
+};
+
+async function loadAdminList() {
+  const list = document.getElementById('admin-media-list');
+  list.innerHTML = "Loading...";
+  try {
+    const q = query(collection(db, "media"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    list.innerHTML = "";
+    snapshot.forEach((itemDoc) => {
+      const item = itemDoc.data();
+      const row = document.createElement('div');
+      row.className = "media-item";
+
+      const label = document.createElement('span');
+      const strong = document.createElement('strong');
+      strong.textContent = item.title;
+      label.appendChild(strong);
+      label.appendChild(document.createTextNode(" (" + item.type + ")"));
+      row.appendChild(label);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = "delete-btn";
+      delBtn.innerText = "Delete";
+      delBtn.onclick = async () => {
+        if (confirm("Remove this from your website?")) {
+          try {
+            await deleteDoc(doc(db, "media", itemDoc.id));
+            loadAdminList();
+          } catch (err) {
+            alert("Delete failed: " + err.message);
+          }
+        }
+      };
+      row.appendChild(delBtn);
+      list.appendChild(row);
+    });
+    if (snapshot.empty) list.innerText = "No media uploaded yet.";
+  } catch (err) {
+    list.innerText = "Could not load media: " + err.message;
+  }
+}
+</script>
+</body>
+</html>
