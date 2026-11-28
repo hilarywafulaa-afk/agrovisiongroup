@@ -1,0 +1,26 @@
+media:
+  input: guides
+  output: /guides
+
+content:
+  - name: terms
+    label: Terms and Conditions
+    type: file
+    path: terms.html
+    fields:
+      - name: body
+        label: Body
+        type: rich-text
+        options:
+          format: html
+
+  - name: home
+    label: Homepage
+    type: file
+    path: index.html
+    fields:
+      - name: body
+        label: Body
+        type: code
+        options:
+          language: html
