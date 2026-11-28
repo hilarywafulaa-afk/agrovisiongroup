@@ -1,5 +1,7 @@
 ---
 ---
+---
+---
  <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,7 +233,7 @@ footer a:hover { text-decoration: underline; }
 
 </div>
 
-<a href="https://wa.me/254700000000" class="helpline-float" target="_blank">💬 Helpline</a>
+<a href="https://wa.me/254733248390" class="helpline-float" target="_blank">💬 Helpline</a>
 
 <footer>
 <p>&copy; Agrovision Group | Knowledge That Grows</p>
@@ -299,13 +301,3 @@ loadGallery();
 </body>
 </html>
 
-Things to fix after pasting
-
-Form action (line about 188). Change it to <form action="https://formsubmit.co/agrovisiongroup254@gmail.com" method="POST">. Submissions go nowhere without the email.
-WhatsApp number. I used a placeholder, 254700000000. Replace it with your real number in international format, no plus or spaces.
-Register and consultant sections. I made them simple email notes since I didn't see your original ones. Tell me if you want proper forms instead.
-Firestore rules. The gallery needs public read access on media:
-match /media/{id} {
-  allow read: if true;
-  allow write: if request.auth != null;
-}
